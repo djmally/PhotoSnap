@@ -150,22 +150,27 @@ public class CameraPreview extends ViewGroup implements SurfaceHolder.Callback {
 
             if(display.getRotation() == Surface.ROTATION_0)
             {
+                Log.d(TAG, "ZERO");
                 params.setPreviewSize(mPreviewSize.height, mPreviewSize.width);
                 mCamera.setDisplayOrientation(90);
             }
 
             if(display.getRotation() == Surface.ROTATION_90)
             {
+                Log.d(TAG, "NINETY");
                 params.setPreviewSize(mPreviewSize.width, mPreviewSize.height);
+                mCamera.setDisplayOrientation(0);
             }
 
             if(display.getRotation() == Surface.ROTATION_180)
             {
+                Log.d(TAG, "ONE_EIGHTY");
                 params.setPreviewSize(mPreviewSize.height, mPreviewSize.width);
             }
 
             if(display.getRotation() == Surface.ROTATION_270)
             {
+                Log.d(TAG, "TWO_SEVENTY");
                 params.setPreviewSize(mPreviewSize.width, mPreviewSize.height);
                 mCamera.setDisplayOrientation(180);
             }
