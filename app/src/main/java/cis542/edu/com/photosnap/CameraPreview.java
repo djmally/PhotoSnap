@@ -3,11 +3,13 @@ package cis542.edu.com.photosnap;
 import android.content.Context;
 import android.hardware.Camera;
 import android.util.Log;
+import android.view.Display;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowManager;
 
 import java.io.IOException;
 import java.util.List;
@@ -109,29 +111,30 @@ public class CameraPreview extends ViewGroup implements SurfaceHolder.Callback {
 
     private Camera.Size getOptimalPreviewSize(List<Camera.Size> sizes, int w, int h) {
         final double ASPECT_TOLERANCE = 0.1;
-        double targetRatio = (double) w / h;
-        if(sizes == null) { return null; }
+        double targetRatio=(double)h / w;
+
+        if (sizes == null) return null;
 
         Camera.Size optimalSize = null;
         double minDiff = Double.MAX_VALUE;
 
         int targetHeight = h;
 
-        for(Camera.Size sz : sizes) {
-            double ratio = (double) sz.width / sz.height;
-            if(Math.abs(ratio - targetRatio) > ASPECT_TOLERANCE) { continue; }
-            if(Math.abs(sz.height - targetHeight) < minDiff) {
-                optimalSize = sz;
-                minDiff = Math.abs(sz.height - targetHeight);
+        for (Camera.Size size : sizes) {
+            double ratio = (double) size.width / size.height;
+            if (Math.abs(ratio - targetRatio) > ASPECT_TOLERANCE) continue;
+            if (Math.abs(size.height - targetHeight) < minDiff) {
+                optimalSize = size;
+                minDiff = Math.abs(size.height - targetHeight);
             }
         }
 
-        if(optimalSize == null) {
+        if (optimalSize == null) {
             minDiff = Double.MAX_VALUE;
-            for(Camera.Size sz : sizes) {
-                if(Math.abs(sz.height - targetHeight) < minDiff) {
-                    optimalSize = sz;
-                    minDiff = Math.abs(sz.height = targetHeight);
+            for (Camera.Size size : sizes) {
+                if (Math.abs(size.height - targetHeight) < minDiff) {
+                    optimalSize = size;
+                    minDiff = Math.abs(size.height - targetHeight);
                 }
             }
         }
@@ -143,10 +146,31 @@ public class CameraPreview extends ViewGroup implements SurfaceHolder.Callback {
             Camera.Parameters params = mCamera.getParameters();
             List<Camera.Size> previewSizes = params.getSupportedPreviewSizes();
 
-            int previewWidth = previewSizes.get(0).width;
-            int previewHeight = previewSizes.get(0).height;
+            Display display = ((WindowManager)this.getContext().getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
 
-            params.setPreviewSize(previewWidth, previewHeight);
+            if(display.getRotation() == Surface.ROTATION_0)
+            {
+                params.setPreviewSize(mPreviewSize.height, mPreviewSize.width);
+                mCamera.setDisplayOrientation(90);
+            }
+
+            if(display.getRotation() == Surface.ROTATION_90)
+            {
+                params.setPreviewSize(mPreviewSize.width, mPreviewSize.height);
+            }
+
+            if(display.getRotation() == Surface.ROTATION_180)
+            {
+                params.setPreviewSize(mPreviewSize.height, mPreviewSize.width);
+            }
+
+            if(display.getRotation() == Surface.ROTATION_270)
+            {
+                params.setPreviewSize(mPreviewSize.width, mPreviewSize.height);
+                mCamera.setDisplayOrientation(180);
+            }
+
+            params.setPreviewSize(mPreviewSize.width, mPreviewSize.height);
             requestLayout();
 
             mCamera.setParameters(params);
