@@ -37,6 +37,8 @@ public class CameraActivity extends Activity {
 
     private static final int REQUEST_IMAGE_CAPTURE = 1;
     private static final String TAG = "CameraActivity";
+    private static final int ZOOM_IN = 0;
+    private static final int ZOOM_OUT = 1;
 
     /* PEBBLE DATA CONSTANTS */
     private static final UUID PEBBLE_APP_UUID = UUID.fromString("3fb49826-013e-45d2-baaf-f10a2735556c");
@@ -140,10 +142,14 @@ public class CameraActivity extends Activity {
                 // Take action
                 switch (buttonPressed) {
                     case SELECT_BUTTON_KEY:
+                        mCamera.takePicture(shutterCallback, rawCallback, jpegCallback);
+                        Toast.makeText(ctx, "Took a photo", Toast.LENGTH_LONG).show();
                         break;
                     case UP_BUTTON_KEY:
+                        zoomCamera(ZOOM_IN);
                         break;
                     case DOWN_BUTTON_KEY:
+                        zoomCamera(ZOOM_OUT);
                         break;
                     default:
                         break;
@@ -154,6 +160,27 @@ public class CameraActivity extends Activity {
         // Register data handler
         PebbleKit.registerReceivedDataHandler(getApplicationContext(), dataHandler);
         /* END PEBBLE SECTION */
+    }
+
+    private void zoomCamera(int zoomDir) {
+        Camera.Parameters params = mCamera.getParameters();
+        if(!params.isZoomSupported()) {
+            Log.d(TAG, "Zoom not supported");
+            return;
+        }
+        int maxZoom = params.getMaxZoom();
+        if(zoomDir == ZOOM_IN) {
+            params.setZoom(params.getZoom() + 5);
+        } else if(zoomDir == ZOOM_OUT) {
+            params.setZoom(params.getZoom() - 5);
+        }
+        if(params.getZoom() > maxZoom) {
+            params.setZoom(maxZoom);
+        }
+        if(params.getZoom() < 0) {
+            params.setZoom(0);
+        }
+        mCamera.setParameters(params);
     }
 
     @Override
