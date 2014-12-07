@@ -20,11 +20,11 @@ import java.util.List;
 public class CameraPreview extends ViewGroup implements SurfaceHolder.Callback {
     private final String TAG = "CameraPreview";
 
-    SurfaceView mSurfaceView;
-    SurfaceHolder mHolder;
-    Camera.Size mPreviewSize;
-    List<Camera.Size> mSupportedPreviewSizes;
-    Camera mCamera;
+    private SurfaceView mSurfaceView;
+    private SurfaceHolder mHolder;
+    private Camera.Size mPreviewSize;
+    private List<Camera.Size> mSupportedPreviewSizes;
+    private Camera mCamera;
 
     CameraPreview(Context context, SurfaceView sv) {
         super(context);
@@ -50,6 +50,10 @@ public class CameraPreview extends ViewGroup implements SurfaceHolder.Callback {
                 mCamera.setParameters(params);
             }
         }
+    }
+
+    public SurfaceHolder getHolder() {
+        return mHolder;
     }
 
     @Override
@@ -150,27 +154,23 @@ public class CameraPreview extends ViewGroup implements SurfaceHolder.Callback {
 
             if(display.getRotation() == Surface.ROTATION_0)
             {
-                Log.d(TAG, "ZERO");
                 params.setPreviewSize(mPreviewSize.height, mPreviewSize.width);
                 mCamera.setDisplayOrientation(90);
             }
 
             if(display.getRotation() == Surface.ROTATION_90)
             {
-                Log.d(TAG, "NINETY");
                 params.setPreviewSize(mPreviewSize.width, mPreviewSize.height);
                 mCamera.setDisplayOrientation(0);
             }
 
             if(display.getRotation() == Surface.ROTATION_180)
             {
-                Log.d(TAG, "ONE_EIGHTY");
                 params.setPreviewSize(mPreviewSize.height, mPreviewSize.width);
             }
 
             if(display.getRotation() == Surface.ROTATION_270)
             {
-                Log.d(TAG, "TWO_SEVENTY");
                 params.setPreviewSize(mPreviewSize.width, mPreviewSize.height);
                 mCamera.setDisplayOrientation(180);
             }

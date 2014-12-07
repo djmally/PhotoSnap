@@ -52,6 +52,7 @@ public class CameraActivity extends Activity {
     /* PEBBLE VARIABLES */
 
     private View v;
+    private Context ctx;
     private CameraPreview cameraPreview;
     private Camera mCamera;
     private SurfaceView mSurfaceView;
@@ -63,6 +64,7 @@ public class CameraActivity extends Activity {
         requestWindowFeature(Window.FEATURE_NO_TITLE);
 
         setContentView(R.layout.activity_camera);
+        ctx = this;
 
         //this.imageView = (ImageView) findViewById(R.id.imageView);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
@@ -78,18 +80,9 @@ public class CameraActivity extends Activity {
             @Override
             public void onClick(View v) {
                 mCamera.takePicture(shutterCallback, rawCallback, jpegCallback);
+                Toast.makeText(ctx, "Took a photo", Toast.LENGTH_LONG).show();
             }
         });
-
-        Toast.makeText(this, "Took a photo", Toast.LENGTH_LONG).show();
-        /*Button capturebutton = (Button) findViewById(R.id.button_capture);
-        capturebutton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                distpatchPictureIntent();
-            }
-        });*/
-
     }
 
 
@@ -157,16 +150,18 @@ public class CameraActivity extends Activity {
                 }
             }
         };
-        /* END PEBBLE SECTION */
 
         // Register data handler
         PebbleKit.registerReceivedDataHandler(getApplicationContext(), dataHandler);
+        /* END PEBBLE SECTION */
     }
 
     @Override
     public void onPause() {
+
         if(mCamera != null) {
             mCamera.stopPreview();
+            cameraPreview.getHolder().removeCallback(cameraPreview);
             mCamera.release();
             mCamera = null;
         }
@@ -174,12 +169,12 @@ public class CameraActivity extends Activity {
         /* PEBBLE SECTION */
         // Unregister Activity-scoped BroadcastReceivers when Activity is paused
         if(dataHandler != null) {
-            unregisterReceiver(dataHandler);
+            //unregisterReceiver(dataHandler);
             dataHandler = null;
         }
         /* END PEBBLE SECTION */
-        super.onPause();
 
+        super.onPause();
     }
 
     private void resetCamera() {
