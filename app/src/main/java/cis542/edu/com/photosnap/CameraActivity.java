@@ -1,6 +1,7 @@
 package cis542.edu.com.photosnap;
 
 import android.app.Activity;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.hardware.Camera;
@@ -59,7 +60,6 @@ public class CameraActivity extends Activity {
     private Camera mCamera;
     private SurfaceView mSurfaceView;
 
-    /* BEGIN PRE-GENERATED CODE */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -68,10 +68,15 @@ public class CameraActivity extends Activity {
         setContentView(R.layout.activity_camera);
         ctx = this;
 
-        //this.imageView = (ImageView) findViewById(R.id.imageView);
+        boolean pebbleConnected = PebbleKit.isWatchConnected(getApplicationContext());
+        Log.i(TAG, "Pebble is " + (pebbleConnected ? "connected" : "disconnected"));
+
+
+        // Start Pebble app
+        PebbleKit.startAppOnPebble(getApplicationContext(), PEBBLE_APP_UUID);
+
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
-        //setContentView(R.layout.main);
         mSurfaceView = (SurfaceView) findViewById(R.id.sv);
         cameraPreview = new CameraPreview(this, mSurfaceView);
         cameraPreview.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
@@ -81,10 +86,45 @@ public class CameraActivity extends Activity {
         cameraPreview.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                mCamera.takePicture(shutterCallback, rawCallback, jpegCallback);
-                Toast.makeText(ctx, "Took a photo", Toast.LENGTH_LONG).show();
+                cameraShotCallback();
             }
         });
+    }
+
+    private String recognizeFace() {
+        return "test string";
+    }
+
+    private void registerPebbleHandlers() {
+        PebbleKit.registerPebbleConnectedReceiver(getApplicationContext(), new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                Log.i(getLocalClassName(), "Pebble connected!");
+            }
+        });
+
+        PebbleKit.registerPebbleDisconnectedReceiver(getApplicationContext(), new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                Log.i(getLocalClassName(), "Pebble disconnected!");
+            }
+        });
+
+        PebbleKit.registerReceivedAckHandler(getApplicationContext(), new PebbleKit.PebbleAckReceiver(PEBBLE_APP_UUID) {
+            @Override
+            public void receiveAck(Context context, int transactionId) {
+                Log.i(getLocalClassName(), "Received ack for transaction " + transactionId);
+            }
+
+        });
+        PebbleKit.registerReceivedNackHandler(getApplicationContext(), new PebbleKit.PebbleNackReceiver(PEBBLE_APP_UUID) {
+            @Override
+            public void receiveNack(Context context, int transactionId) {
+                Log.i(getLocalClassName(), "Received nack for transaction " + transactionId);
+            }
+        });
+
+
     }
 
 
@@ -110,8 +150,6 @@ public class CameraActivity extends Activity {
         return super.onOptionsItemSelected(item);
     }
 
-    /* END PRE-GENERATED CODE */
-
     @Override
     public void onResume() {
         super.onResume();
@@ -126,24 +164,20 @@ public class CameraActivity extends Activity {
                 Toast.makeText(this, "No camera found...", Toast.LENGTH_LONG).show();
             }
         }
-
-        /* PEBBLE SECTION */
-        // Start Pebble app
-        PebbleKit.startAppOnPebble(getApplicationContext(), PEBBLE_APP_UUID);
         this.dataHandler = new PebbleKit.PebbleDataReceiver(PEBBLE_APP_UUID) {
             @Override
-            public void receiveData(Context context, int i, PebbleDictionary pebbleTuples) {
+            public void receiveData(final Context context, final int id, final PebbleDictionary pebbleTuples) {
+                Log.i(TAG, "Received data from pebble");
                 // ACK to prevent timeout
-                PebbleKit.sendAckToPebble(context, i);
+                PebbleKit.sendAckToPebble(context, id);
 
                 // Get button press
-                int buttonPressed = pebbleTuples.getInteger(DATA_KEY).intValue();
+                int buttonPressed = pebbleTuples.getUnsignedIntegerAsLong(DATA_KEY).intValue();
 
                 // Take action
                 switch (buttonPressed) {
                     case SELECT_BUTTON_KEY:
-                        mCamera.takePicture(shutterCallback, rawCallback, jpegCallback);
-                        Toast.makeText(ctx, "Took a photo", Toast.LENGTH_LONG).show();
+                        cameraShotCallback();
                         break;
                     case UP_BUTTON_KEY:
                         zoomCamera(ZOOM_IN);
@@ -156,10 +190,16 @@ public class CameraActivity extends Activity {
                 }
             }
         };
-
-        // Register data handler
         PebbleKit.registerReceivedDataHandler(getApplicationContext(), dataHandler);
-        /* END PEBBLE SECTION */
+        registerPebbleHandlers();
+    }
+
+    /* Called when we tap the screen or press the select button on the Pebble */
+    private void cameraShotCallback() {
+        mCamera.takePicture(shutterCallback, rawCallback, jpegCallback);
+        String name = recognizeFace();
+        sendStringToPebble(name);
+        Toast.makeText(ctx, "Took a photo", Toast.LENGTH_LONG).show();
     }
 
     private void zoomCamera(int zoomDir) {
@@ -299,13 +339,13 @@ public class CameraActivity extends Activity {
     }*/
 
     private void sendStringToPebble(String message) {
-        if(message.length() > BUFFER_LENGTH) {
+        //if(message.length() > BUFFER_LENGTH) {
             PebbleDictionary pebDict = new PebbleDictionary();
             pebDict.addString(DATA_KEY, message);
             PebbleKit.sendDataToPebble(getApplicationContext(), PEBBLE_APP_UUID, pebDict);
-        } else {
+        //} else {
             Log.i("sendStringToPebble", "String too long!");
-        }
+       //}
     }
 
 }
