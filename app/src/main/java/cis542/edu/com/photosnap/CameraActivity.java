@@ -10,12 +10,10 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
 import android.util.Log;
-import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.SurfaceView;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
 import android.view.Window;
 import android.view.WindowManager;
@@ -29,8 +27,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.UUID;
 
 
@@ -86,46 +82,11 @@ public class CameraActivity extends Activity {
         cameraPreview.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                cameraShotCallback();
+                handlePhotoTakeRequest();
             }
         });
     }
 
-    private String recognizeFace() {
-        return "test string";
-    }
-
-    private void registerPebbleHandlers() {
-        PebbleKit.registerPebbleConnectedReceiver(getApplicationContext(), new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                Log.i(getLocalClassName(), "Pebble connected!");
-            }
-        });
-
-        PebbleKit.registerPebbleDisconnectedReceiver(getApplicationContext(), new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                Log.i(getLocalClassName(), "Pebble disconnected!");
-            }
-        });
-
-        PebbleKit.registerReceivedAckHandler(getApplicationContext(), new PebbleKit.PebbleAckReceiver(PEBBLE_APP_UUID) {
-            @Override
-            public void receiveAck(Context context, int transactionId) {
-                Log.i(getLocalClassName(), "Received ack for transaction " + transactionId);
-            }
-
-        });
-        PebbleKit.registerReceivedNackHandler(getApplicationContext(), new PebbleKit.PebbleNackReceiver(PEBBLE_APP_UUID) {
-            @Override
-            public void receiveNack(Context context, int transactionId) {
-                Log.i(getLocalClassName(), "Received nack for transaction " + transactionId);
-            }
-        });
-
-
-    }
 
 
     @Override
@@ -177,7 +138,7 @@ public class CameraActivity extends Activity {
                 // Take action
                 switch (buttonPressed) {
                     case SELECT_BUTTON_KEY:
-                        cameraShotCallback();
+                        handlePhotoTakeRequest();
                         break;
                     case UP_BUTTON_KEY:
                         zoomCamera(ZOOM_IN);
@@ -194,8 +155,65 @@ public class CameraActivity extends Activity {
         registerPebbleHandlers();
     }
 
+    @Override
+    public void onPause() {
+
+        if(mCamera != null) {
+            mCamera.stopPreview();
+            cameraPreview.getHolder().removeCallback(cameraPreview);
+            mCamera.release();
+            mCamera = null;
+        }
+
+        /* PEBBLE SECTION */
+        // Unregister Activity-scoped BroadcastReceivers when Activity is paused
+        if(dataHandler != null) {
+            //unregisterReceiver(dataHandler); // This crashes things and I don't know why
+            dataHandler = null;
+        }
+        /* END PEBBLE SECTION */
+
+        super.onPause();
+    }
+
+    private void registerPebbleHandlers() {
+        PebbleKit.registerPebbleConnectedReceiver(getApplicationContext(), new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                Log.i(getLocalClassName(), "Pebble connected!");
+            }
+        });
+
+        PebbleKit.registerPebbleDisconnectedReceiver(getApplicationContext(), new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                Log.i(getLocalClassName(), "Pebble disconnected!");
+            }
+        });
+
+        PebbleKit.registerReceivedAckHandler(getApplicationContext(), new PebbleKit.PebbleAckReceiver(PEBBLE_APP_UUID) {
+            @Override
+            public void receiveAck(Context context, int transactionId) {
+                Log.i(getLocalClassName(), "Received ack for transaction " + transactionId);
+            }
+
+        });
+        PebbleKit.registerReceivedNackHandler(getApplicationContext(), new PebbleKit.PebbleNackReceiver(PEBBLE_APP_UUID) {
+            @Override
+            public void receiveNack(Context context, int transactionId) {
+                Log.i(getLocalClassName(), "Received nack for transaction " + transactionId);
+            }
+        });
+
+
+    }
+
+    private String recognizeFace() {
+        return "test string";
+    }
+
     /* Called when we tap the screen or press the select button on the Pebble */
-    private void cameraShotCallback() {
+    private void handlePhotoTakeRequest() {
         mCamera.takePicture(shutterCallback, rawCallback, jpegCallback);
         String name = recognizeFace();
         sendStringToPebble(name);
@@ -223,27 +241,6 @@ public class CameraActivity extends Activity {
         mCamera.setParameters(params);
     }
 
-    @Override
-    public void onPause() {
-
-        if(mCamera != null) {
-            mCamera.stopPreview();
-            cameraPreview.getHolder().removeCallback(cameraPreview);
-            mCamera.release();
-            mCamera = null;
-        }
-
-        /* PEBBLE SECTION */
-        // Unregister Activity-scoped BroadcastReceivers when Activity is paused
-        if(dataHandler != null) {
-            //unregisterReceiver(dataHandler);
-            dataHandler = null;
-        }
-        /* END PEBBLE SECTION */
-
-        super.onPause();
-    }
-
     private void resetCamera() {
         mCamera.startPreview();
         cameraPreview.setCamera(mCamera);
@@ -254,29 +251,6 @@ public class CameraActivity extends Activity {
         mediaScanIntent.setData(Uri.fromFile(file));
         sendBroadcast(mediaScanIntent);
     }
-
-    private Camera.ShutterCallback shutterCallback = new Camera.ShutterCallback() {
-        @Override
-        public void onShutter() {
-            Log.d(TAG, "onShutter");
-        }
-    };
-
-    private Camera.PictureCallback rawCallback = new Camera.PictureCallback() {
-        @Override
-        public void onPictureTaken(byte[] data, Camera camera) {
-            Log.d(TAG, "onPictureTaken - raw");
-        }
-    };
-
-    private Camera.PictureCallback jpegCallback = new Camera.PictureCallback() {
-        @Override
-        public void onPictureTaken(byte[] data, Camera camera) {
-            new SaveImageTask().execute(data);
-            resetCamera();
-            Log.d(TAG, "onPictureTaken - jpeg");
-        }
-    };
 
     private class SaveImageTask extends AsyncTask<byte[], Void, Void> {
         @Override
@@ -308,36 +282,6 @@ public class CameraActivity extends Activity {
         }
     }
 
-    /*private void distpatchPictureIntent() {
-        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-        if(takePictureIntent.resolveActivity(getPackageManager()) != null) {
-            startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
-        }
-    }*/
-
-    private File createImageFile() throws IOException {
-        String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-        String imageFileName = "JPEG_" + timestamp + "_";
-        File storageDir = Environment.getExternalStoragePublicDirectory(
-                          Environment.DIRECTORY_PICTURES);
-        File image = File.createTempFile(
-                imageFileName,
-                ".jpg",
-                storageDir
-        );
-
-        String mCurrentPhotoPath = "file:" + image.getAbsolutePath();
-        return image;
-
-    }
-
-    /*protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if(requestCode == REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
-            Bitmap photo = (Bitmap) data.getExtras().get("data");
-            imageView.setImageBitmap(photo);
-        }
-    }*/
-
     private void sendStringToPebble(String message) {
         //if(message.length() > BUFFER_LENGTH) {
             PebbleDictionary pebDict = new PebbleDictionary();
@@ -347,5 +291,28 @@ public class CameraActivity extends Activity {
             Log.i("sendStringToPebble", "String too long!");
        //}
     }
+
+    private Camera.ShutterCallback shutterCallback = new Camera.ShutterCallback() {
+        @Override
+        public void onShutter() {
+            Log.d(TAG, "onShutter");
+        }
+    };
+
+    private Camera.PictureCallback rawCallback = new Camera.PictureCallback() {
+        @Override
+        public void onPictureTaken(byte[] data, Camera camera) {
+            Log.d(TAG, "onPictureTaken - raw");
+        }
+    };
+
+    private Camera.PictureCallback jpegCallback = new Camera.PictureCallback() {
+        @Override
+        public void onPictureTaken(byte[] data, Camera camera) {
+            new SaveImageTask().execute(data);
+            resetCamera();
+            Log.d(TAG, "onPictureTaken - jpeg");
+        }
+    };
 
 }
