@@ -55,6 +55,11 @@ public class CameraActivity extends Activity {
     private CameraPreview cameraPreview;
     private Camera mCamera;
     private SurfaceView mSurfaceView;
+    private BroadcastReceiver mDataReceiver;
+    private BroadcastReceiver mConnectedReceiver;
+    private BroadcastReceiver mDisconnectedReceiver;
+    private BroadcastReceiver mAckReceiver;
+    private BroadcastReceiver mNackReceiver;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -113,10 +118,9 @@ public class CameraActivity extends Activity {
 
     @Override
     public void onResume() {
-        super.onResume();
-
         int numCams = Camera.getNumberOfCameras();
         if(numCams > 0) {
+            mCamera = null;
             try {
                 mCamera = Camera.open(0);
                 mCamera.startPreview();
@@ -151,8 +155,9 @@ public class CameraActivity extends Activity {
                 }
             }
         };
-        PebbleKit.registerReceivedDataHandler(getApplicationContext(), dataHandler);
+        mDataReceiver = PebbleKit.registerReceivedDataHandler(getApplicationContext(), dataHandler);
         registerPebbleHandlers();
+        super.onResume();
     }
 
     @Override
@@ -161,6 +166,7 @@ public class CameraActivity extends Activity {
         if(mCamera != null) {
             mCamera.stopPreview();
             cameraPreview.getHolder().removeCallback(cameraPreview);
+            mCamera.setPreviewCallback(null);
             mCamera.release();
             mCamera = null;
         }
@@ -168,8 +174,37 @@ public class CameraActivity extends Activity {
         /* PEBBLE SECTION */
         // Unregister Activity-scoped BroadcastReceivers when Activity is paused
         if(dataHandler != null) {
-            //unregisterReceiver(dataHandler); // This crashes things and I don't know why
             dataHandler = null;
+        }
+        try {
+            unregisterReceiver(mDataReceiver); // This crashes things and I don't know why
+        } catch (IllegalArgumentException ex) {
+            Log.d(TAG, "Data receiver not registered");
+            mDataReceiver = null;
+        }
+        try {
+            unregisterReceiver(mConnectedReceiver);
+        } catch (IllegalArgumentException ex) {
+            Log.d(TAG, "Connected receiver not registered");
+            mConnectedReceiver = null;
+        }
+        try {
+            unregisterReceiver(mDisconnectedReceiver);
+        } catch (IllegalArgumentException ex) {
+            Log.d(TAG, "Disconnected receiver not registered");
+            mDisconnectedReceiver = null;
+        }
+        try {
+            unregisterReceiver(mAckReceiver);
+        } catch (IllegalArgumentException ex) {
+            Log.d(TAG, "ACK receiver not registered");
+            mAckReceiver = null;
+        }
+        try {
+            unregisterReceiver(mNackReceiver);
+        } catch (IllegalArgumentException ex) {
+            Log.d(TAG, "NACK receiver not registered");
+            mNackReceiver = null;
         }
         /* END PEBBLE SECTION */
 
@@ -177,6 +212,7 @@ public class CameraActivity extends Activity {
     }
 
     private void registerPebbleHandlers() {
+        mConnectedReceiver =
         PebbleKit.registerPebbleConnectedReceiver(getApplicationContext(), new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -184,6 +220,7 @@ public class CameraActivity extends Activity {
             }
         });
 
+        mDisconnectedReceiver =
         PebbleKit.registerPebbleDisconnectedReceiver(getApplicationContext(), new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -191,6 +228,7 @@ public class CameraActivity extends Activity {
             }
         });
 
+        mAckReceiver =
         PebbleKit.registerReceivedAckHandler(getApplicationContext(), new PebbleKit.PebbleAckReceiver(PEBBLE_APP_UUID) {
             @Override
             public void receiveAck(Context context, int transactionId) {
@@ -198,6 +236,8 @@ public class CameraActivity extends Activity {
             }
 
         });
+
+        mNackReceiver =
         PebbleKit.registerReceivedNackHandler(getApplicationContext(), new PebbleKit.PebbleNackReceiver(PEBBLE_APP_UUID) {
             @Override
             public void receiveNack(Context context, int transactionId) {
