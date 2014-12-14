@@ -4,11 +4,16 @@ import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.hardware.Camera;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.StrictMode;
+import android.provider.MediaStore;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -23,14 +28,34 @@ import android.widget.Toast;
 import com.getpebble.android.kit.PebbleKit;
 import com.getpebble.android.kit.util.PebbleDictionary;
 
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.HttpVersion;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.mime.MultipartEntityBuilder;
+import org.apache.http.entity.mime.content.ContentBody;
+import org.apache.http.entity.mime.content.FileBody;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.params.CoreProtocolPNames;
+import org.apache.http.util.EntityUtils;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.util.UUID;
 
 
 public class CameraActivity extends Activity {
+
+    private static final String FACE_API_KEY = "TtjwpsetM3mshPPfof6EoclZgtFYp1E7yvNjsnMy7IzSF5UJwE";
 
     private static final int REQUEST_IMAGE_CAPTURE = 1;
     private static final String TAG = "CameraActivity";
@@ -60,6 +85,8 @@ public class CameraActivity extends Activity {
     private BroadcastReceiver mDisconnectedReceiver;
     private BroadcastReceiver mAckReceiver;
     private BroadcastReceiver mNackReceiver;
+    private File outFile;
+    private String mName = "asdf";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -72,6 +99,10 @@ public class CameraActivity extends Activity {
         boolean pebbleConnected = PebbleKit.isWatchConnected(getApplicationContext());
         Log.i(TAG, "Pebble is " + (pebbleConnected ? "connected" : "disconnected"));
 
+        // BAD IDEAS WHEE
+        StrictMode.ThreadPolicy policy = new StrictMode.
+                ThreadPolicy.Builder().permitAll().build();
+        StrictMode.setThreadPolicy(policy);
 
         // Start Pebble app
         PebbleKit.startAppOnPebble(getApplicationContext(), PEBBLE_APP_UUID);
@@ -90,6 +121,8 @@ public class CameraActivity extends Activity {
                 handlePhotoTakeRequest();
             }
         });
+
+
     }
 
 
@@ -249,15 +282,102 @@ public class CameraActivity extends Activity {
     }
 
     private String recognizeFace() {
-        return "test string";
+        // Find the last picture
+        File imageFile = null;
+        String[] projection = new String[]{
+                MediaStore.Images.ImageColumns._ID,
+                MediaStore.Images.ImageColumns.DATA,
+                MediaStore.Images.ImageColumns.BUCKET_DISPLAY_NAME,
+                MediaStore.Images.ImageColumns.DATE_TAKEN,
+                MediaStore.Images.ImageColumns.MIME_TYPE
+        };
+        final Cursor cursor = getContentResolver()
+                .query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, projection, null,
+                        null, MediaStore.Images.ImageColumns.DATE_TAKEN + " DESC");
+        if(cursor.moveToFirst()) {
+            String imageLocation = cursor.getString(1);
+            imageFile = new File(imageLocation);
+        }
+
+        try {
+            Bitmap bitmap = BitmapFactory.decodeFile(imageFile.getAbsolutePath());
+            Bitmap resized = Bitmap.createScaledBitmap(bitmap, bitmap.getWidth() / 4, bitmap.getHeight() / 4, true);
+            OutputStream outputStream = new FileOutputStream(imageFile);
+            resized.compress(Bitmap.CompressFormat.JPEG, 100, outputStream);
+        } catch (FileNotFoundException ex) {
+            ex.printStackTrace();
+        }
+
+        String name = "";
+        /*try {
+            HttpClient httpclient = new DefaultHttpClient();
+            httpclient.getParams().setParameter(CoreProtocolPNames.PROTOCOL_VERSION, HttpVersion.HTTP_1_1);
+
+            HttpPost httppost = new HttpPost("https://lambda-face-recognition.p.mashape.com/recognize?album=CELEBS&albumkey=b1ccb6caa8cefb7347d0cfb65146d5e3f84608f6ee55b1c90d37ed4ecca9b273");
+            httppost.addHeader("X-Mashape-Key", FACE_API_KEY);
+
+            MultipartEntityBuilder multipartEntityBuilder = MultipartEntityBuilder.create();
+            //multipartEntityBuilder.addTextBody("album", "CELEBS");
+            //multipartEntityBuilder.addTextBody("albumkey", "b1ccb6caa8cefb7347d0cfb65146d5e3f84608f6ee55b1c90d37ed4ecca9b273");
+            FileBody fileBody = new FileBody(imageFile);
+            multipartEntityBuilder.addPart("file", fileBody);
+            //multipartEntityBuilder.addTextBody("urls", "http://www.lambdal.com/tiger.jpg");
+            HttpEntity entity = multipartEntityBuilder.build();
+            httppost.setEntity(entity);
+
+            HttpResponse response = httpclient.execute(httppost);
+
+            try {
+                String jsonString = EntityUtils.toString(response.getEntity());
+                JSONObject jsonObject = new JSONObject(jsonString);
+                Log.d(TAG, "test");
+            } catch (JSONException ex) {
+                ex.printStackTrace();
+            }
+
+            httpclient.getConnectionManager().shutdown();
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }*/
+        /*try {
+            com.mashape.unirest.http.HttpResponse<JsonNode> response =
+            Unirest.post("https://lambda-face-recognition.p.mashape.com/recognize")
+                    .header("X-Mashape-Key", FACE_API_KEY)
+                    .header("Content-Type", "application/x-www-form-urlencoded")
+                    .field("file", imageFile)
+                    .field("albumkey", "b1ccb6caa8cefb7347d0cfb65146d5e3f84608f6ee55b1c90d37ed4ecca9b273")
+                    .asJson();
+            Log.d(TAG, "TEST");
+        } catch (UnirestException ex) {
+            ex.printStackTrace();
+        }*/
+
+        try {
+            Process process = Runtime.getRuntime().exec("curl -X POST --include https://lambda-face-recognition.p.mashape.com/recognize?album=CELEBS&albumkey=b1ccb6caa8cefb7347d0cfb65146d5e3f84608f6ee55b1c90d37ed4ecca9b273   -H X-Mashape-Key: TtjwpsetM3mshPPfof6EoclZgtFYp1E7yvNjsnMy7IzSF5UJwE  -F files=@" + imageFile.getAbsolutePath());
+            BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            BufferedReader bufferedReader1 = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+            String line = "";
+            while((line = bufferedReader.readLine()) != null) {
+                Log.d(TAG, line);
+            }
+            /*while((line = bufferedReader1.readLine()) != null) {
+                Log.d(TAG, line);
+            }*/
+            Log.d(TAG, "TEST");
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+
+        return name;
     }
 
     /* Called when we tap the screen or press the select button on the Pebble */
     private void handlePhotoTakeRequest() {
         mCamera.takePicture(shutterCallback, rawCallback, jpegCallback);
-        String name = recognizeFace();
-        sendStringToPebble(name);
+        mName = recognizeFace();
+        sendStringToPebble(mName);
         Toast.makeText(ctx, "Took a photo", Toast.LENGTH_LONG).show();
+        mName = "";
     }
 
     private void zoomCamera(int zoomDir) {
@@ -303,7 +423,7 @@ public class CameraActivity extends Activity {
                 directory.mkdirs();
 
                 String fileName = String.format("%d.jpg", System.currentTimeMillis());
-                File outFile = new File(directory, fileName);
+                outFile = new File(directory, fileName);
 
                 outputStream = new FileOutputStream(outFile);
                 outputStream.write(data[0]);
@@ -311,10 +431,8 @@ public class CameraActivity extends Activity {
                 outputStream.close();
 
                 Log.d(TAG, "onPictureTaken - wrote bytes: " + data.length + " to " +
-                            outFile.getAbsolutePath());
+                        outFile.getAbsolutePath());
                 refreshGallery(outFile);
-            } catch (FileNotFoundException ex) {
-                ex.printStackTrace();
             } catch (IOException ex) {
                 ex.printStackTrace();
             }
@@ -342,6 +460,9 @@ public class CameraActivity extends Activity {
     private Camera.PictureCallback rawCallback = new Camera.PictureCallback() {
         @Override
         public void onPictureTaken(byte[] data, Camera camera) {
+            new SaveImageTask().execute(data);
+            resetCamera();
+
             Log.d(TAG, "onPictureTaken - raw");
         }
     };
@@ -351,6 +472,7 @@ public class CameraActivity extends Activity {
         public void onPictureTaken(byte[] data, Camera camera) {
             new SaveImageTask().execute(data);
             resetCamera();
+
             Log.d(TAG, "onPictureTaken - jpeg");
         }
     };
