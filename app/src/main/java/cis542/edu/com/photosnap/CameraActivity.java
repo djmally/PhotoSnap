@@ -14,6 +14,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.StrictMode;
 import android.provider.MediaStore;
+import android.util.Base64;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -43,6 +44,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -61,6 +63,9 @@ public class CameraActivity extends Activity {
     private static final String TAG = "CameraActivity";
     private static final int ZOOM_IN = 0;
     private static final int ZOOM_OUT = 1;
+
+    private static final String REKOGNITION_API_KEY = "OEersPbHc9zeGpah";
+    private static final String REKOGNITION_API_SECRET = "gsB0eHs2DHmr0rR2";
 
     /* PEBBLE DATA CONSTANTS */
     private static final UUID PEBBLE_APP_UUID = UUID.fromString("3fb49826-013e-45d2-baaf-f10a2735556c");
@@ -309,6 +314,44 @@ public class CameraActivity extends Activity {
         }
 
         String name = "";
+        Bitmap bitmap = BitmapFactory.decodeFile("/storage/emulated/0/photosnap/woods.jpg");
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, baos);
+        byte[] bytes = baos.toByteArray();
+
+
+        final String encodedImage = Base64.encodeToString(bytes, Base64.DEFAULT);
+        //params.add(new BasicNameValuePair("base64", encodedImage));
+
+
+        try {
+            HttpClient httpclient = new DefaultHttpClient();
+            //httpclient.getParams().setParameter(CoreProtocolPNames.PROTOCOL_VERSION, HttpVersion.HTTP_1_1);
+            HttpPost httppost = new HttpPost("http://rekognition.com/func/api/");
+
+            MultipartEntityBuilder multipartEntityBuilder = MultipartEntityBuilder.create();
+            multipartEntityBuilder.addTextBody("api_key", REKOGNITION_API_KEY);
+            multipartEntityBuilder.addTextBody("api_secret", REKOGNITION_API_SECRET);
+            multipartEntityBuilder.addTextBody("jobs", "face_celebrity");
+
+            multipartEntityBuilder.addTextBody("base64", encodedImage);
+            HttpEntity entity = multipartEntityBuilder.build();
+            httppost.setEntity(entity);
+
+            HttpResponse response = httpclient.execute(httppost);
+
+            try {
+                String jsonString = EntityUtils.toString(response.getEntity());
+                JSONObject jsonObject = new JSONObject(jsonString);
+                Log.d(TAG, "test");
+            } catch (JSONException ex) {
+                ex.printStackTrace();
+            }
+
+            httpclient.getConnectionManager().shutdown();
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
         /*try {
             HttpClient httpclient = new DefaultHttpClient();
             httpclient.getParams().setParameter(CoreProtocolPNames.PROTOCOL_VERSION, HttpVersion.HTTP_1_1);
@@ -352,7 +395,7 @@ public class CameraActivity extends Activity {
             ex.printStackTrace();
         }*/
 
-        try {
+       /* try {
             Process process = Runtime.getRuntime().exec("curl -X POST --include https://lambda-face-recognition.p.mashape.com/recognize?album=CELEBS&albumkey=b1ccb6caa8cefb7347d0cfb65146d5e3f84608f6ee55b1c90d37ed4ecca9b273   -H X-Mashape-Key: TtjwpsetM3mshPPfof6EoclZgtFYp1E7yvNjsnMy7IzSF5UJwE  -F files=@" + imageFile.getAbsolutePath());
             BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
             BufferedReader bufferedReader1 = new BufferedReader(new InputStreamReader(process.getErrorStream()));
@@ -360,13 +403,13 @@ public class CameraActivity extends Activity {
             while((line = bufferedReader.readLine()) != null) {
                 Log.d(TAG, line);
             }
-            /*while((line = bufferedReader1.readLine()) != null) {
+            while((line = bufferedReader1.readLine()) != null) {
                 Log.d(TAG, line);
-            }*/
+            }
             Log.d(TAG, "TEST");
         } catch (IOException ex) {
             ex.printStackTrace();
-        }
+        }*/
 
         return name;
     }
