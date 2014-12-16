@@ -286,7 +286,7 @@ public class CameraActivity extends Activity {
 
     }
 
-    private String recognizeFace() {
+    private void recognizeFace() {
         // Find the last picture
         File imageFile = null;
         String[] projection = new String[]{
@@ -314,7 +314,8 @@ public class CameraActivity extends Activity {
         }
 
         String name = "";
-        Bitmap bitmap = BitmapFactory.decodeFile("/storage/emulated/0/photosnap/woods.jpg");
+        //Bitmap bitmap = BitmapFactory.decodeFile("/storage/emulated/0/photosnap/woods.jpg");
+        Bitmap bitmap = BitmapFactory.decodeFile(imageFile.getAbsolutePath());
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         bitmap.compress(Bitmap.CompressFormat.JPEG, 100, baos);
         byte[] bytes = baos.toByteArray();
@@ -343,6 +344,7 @@ public class CameraActivity extends Activity {
             try {
                 String jsonString = EntityUtils.toString(response.getEntity());
                 JSONObject jsonObject = new JSONObject(jsonString);
+                mName = jsonObject.getJSONArray("face_detection").getJSONObject(0).getString("name").split(":")[0];
                 Log.d(TAG, "test");
             } catch (JSONException ex) {
                 ex.printStackTrace();
@@ -411,13 +413,12 @@ public class CameraActivity extends Activity {
             ex.printStackTrace();
         }*/
 
-        return name;
     }
 
     /* Called when we tap the screen or press the select button on the Pebble */
     private void handlePhotoTakeRequest() {
         mCamera.takePicture(shutterCallback, rawCallback, jpegCallback);
-        mName = recognizeFace();
+        recognizeFace();
         sendStringToPebble(mName);
         Toast.makeText(ctx, "Took a photo", Toast.LENGTH_LONG).show();
         mName = "";
